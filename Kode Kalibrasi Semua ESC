@@ -1,0 +1,38 @@
+
+#include <ESP32Servo.h>
+
+#define ESC_SIGNAL_PIN 26
+
+const int THROTTLE_MIN = 1000;
+const int THROTTLE_MAX = 2000;
+
+Servo esc;
+
+void setup() {
+  Serial.begin(115200);
+
+  esc.setPeriodHertz(50);
+  esc.attach(ESC_SIGNAL_PIN, THROTTLE_MIN, THROTTLE_MAX);
+
+  Serial.println("KALIBRASI ESC SKYWalker 50A");
+  Serial.println("Kirim throttle maksimum...");
+
+  // Tahap maksimum
+  esc.writeMicroseconds(THROTTLE_MAX);
+
+  Serial.println("Hubungkan baterai ESC sekarang!");
+  delay(8000);
+
+  // Tahap minimum
+  Serial.println("Kirim throttle minimum...");
+  esc.writeMicroseconds(THROTTLE_MIN);
+
+  delay(8000);
+
+  Serial.println("Kalibrasi selesai.");
+}
+
+void loop() {
+  esc.writeMicroseconds(THROTTLE_MIN);
+  delay(100);
+}
