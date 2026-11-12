@@ -1,0 +1,114 @@
+#include <ESP32Servo.h>
+
+// ================= PIN =================
+#define ESC_PIN       26   // Satu pin sinyal ESC
+#define BUTTON_UP     18   // Tombol menaikkan PWM
+#define BUTTON_DOWN   19   // Tombol menurunkan PWM
+
+// ============== KONFIGURASI ==============
+const int PWM_MIN = 0;
+const int PWM_MAX = 1000;
+const int PWM_STEP = 1;
+
+const int ESC_STOP_US = 1000;
+const int ESC_MAX_US  = 2000;
+
+const unsigned long DEBOUNCE_MS = 40;
+
+// =========================================
+Servo esc;
+
+int pwmValue = 0;
+
+bool lastUpReading = HIGH;
+bool lastDownReading = HIGH;
+bool stableUpState = HIGH;
+bool stableDownState = HIGH;
+
+unsigned long lastUpChange = 0;
+unsigned long lastDownChange = 0;
+
+void applyMotorPWM() {
+  // Nilai logis 0..1000 dipetakan menjadi pulsa ESC 1000..2000 us.
+  int escPulse = map(pwmValue, PWM_MIN, PWM_MAX,
+                     ESC_STOP_US, ESC_MAX_US);
+
+  esc.writeMicroseconds(escPulse);
+
+  Serial.print("PWM: ");
+  Serial.print(pwmValue);
+  Serial.print(" | Sinyal ESC: ");
+  Serial.print(escPulse);
+  Serial.println(" us");
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(BUTTON_UP, INPUT_PULLUP);
+  pinMode(BUTTON_DOWN, INPUT_PULLUP);
+
+  esc.setPeriodHertz(50);
+  esc.attach(ESC_PIN, ESC_STOP_US, ESC_MAX_US);
+
+  // Pastikan motor dalam kondisi berhenti saat mulai.
+  pwmValue = 0;
+  esc.writeMicroseconds(ESC_STOP_US);
+
+  Serial.println();
+  Serial.println("=== TEST MOTOR ESC ===");
+  Serial.println("UP (+)   : Naikkan PWM");
+  Serial.println("DOWN (-) : Turunkan PWM");
+  Serial.println("PWM 0    : STOP");
+  Serial.println("----------------------");
+  Serial.println("Menunggu ESC siap...");
+
+  delay(3000);
+
+  applyMotorPWM();
+}
+
+void loop() {
+  unsigned long now = millis();
+
+  // ---------- Tombol UP ----------
+  bool upReading = digitalRead(BUTTON_UP);
+
+  if (upReading != lastUpReading) {
+    lastUpChange = now;
+    lastUpReading = upReading;
+  }
+
+  if ((now - lastUpChange) >= DEBOUNCE_MS) {
+    if (upReading != stableUpState) {
+      stableUpState = upReading;
+
+      // INPUT_PULLUP: LOW berarti tombol ditekan.
+      if (stableUpState == LOW) {
+        pwmValue += PWM_STEP;
+        pwmValue = constrain(pwmValue, PWM_MIN, PWM_MAX);
+        applyMotorPWM();
+      }
+    }
+  }
+
+  // ---------- Tombol DOWN ----------
+  bool downReading = digitalRead(BUTTON_DOWN);
+
+  if (downReading != lastDownReading) {
+    lastDownChange = now;
+    lastDownReading = downReading;
+  }
+
+  if ((now - lastDownChange) >= DEBOUNCE_MS) {
+    if (downReading != stableDownState) {
+      stableDownState = downReading;
+
+      if (stableDownState == LOW) {
+        pwmValue -= PWM_STEP;
+        pwmValue = constrain(pwmValue, PWM_MIN, PWM_MAX);
+        applyMotorPWM();
+      }
+    }
+  }
+}
